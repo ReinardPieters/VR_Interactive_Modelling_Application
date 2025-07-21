@@ -56,5 +56,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "VR_Modelling_Application.sln"
+    "dotnet.defaultSolution": "VR_Interactive_Modelling_Application.sln"
 }
