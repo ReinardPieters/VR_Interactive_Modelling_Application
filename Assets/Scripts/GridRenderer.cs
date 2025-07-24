@@ -4,66 +4,107 @@ public class GridRenderer : MonoBehaviour
 {
     [Header("Grid Settings")]
     public Transform drawingPlane;
-    public float majorStep = 0.10f; // 10 cm
-    public float minorStep = 0.05f; // 5 cm
+    public float majorStep = 10f; // 10 cm
+    public float minorStep = 5f; // 5 cm
 
     [Header("Line Prefabs")]
     public GameObject majorLinePrefab;
     public GameObject minorLinePrefab;
+    public GameObject labelPrefab;
+
 
     private Transform gridParent;
 
-    public void GenerateGrid()
+
+
+    public void GenerateGrid(float heightM, float widthM)
     {
         if (gridParent != null)
             Destroy(gridParent.gameObject);
 
         gridParent = new GameObject("GridParent").transform;
-        gridParent.SetParent(drawingPlane, false); // Stay local
+        gridParent.SetParent(drawingPlane, false);
         gridParent.localPosition = Vector3.zero;
         gridParent.localRotation = Quaternion.identity;
         gridParent.localScale = Vector3.one;
 
-        float width = drawingPlane.lossyScale.x;
-        float height = drawingPlane.lossyScale.y;
-        float zOffset = -0.01f;
+        Vector3 forwardOffset = new Vector3(0f, 0f, -0.01f);
 
-        // Vertical lines (constant X)
-        for (float x = 0f; x <= width; x += minorStep)
+
+        // Convert steps from cm to meters
+        float minorStepM = minorStep;
+        float majorStepM = majorStep;
+
+        int verticalLines = Mathf.RoundToInt(widthM / minorStepM);
+        int horizontalLines = Mathf.RoundToInt(heightM / minorStepM);
+        int majorFrequency = Mathf.RoundToInt(majorStepM / minorStepM);
+
+        // Vertical lines
+        for (int i = 0; i <= verticalLines; i++)
         {
-            bool isMajor = Mathf.Abs((x * 100f) % (majorStep * 100f)) < 0.01f;
+            float x = i * minorStepM;
+            float normX = x - widthM / 2f;
 
-            Vector3 start = new Vector3(x - width / 2f, -height / 2f, zOffset);
-            Vector3 end   = new Vector3(x - width / 2f,  height / 2f, zOffset);
+            bool isMajor = (i % majorFrequency == 0);
+
+            Vector3 start = new Vector3(normX, -heightM / 2f, 0f) + forwardOffset;
+            Vector3 end   = new Vector3(normX, heightM / 2f, 0f) + forwardOffset;
 
             DrawLine(start, end, isMajor ? majorLinePrefab : minorLinePrefab);
         }
 
-        // Horizontal lines (constant Y)
-        for (float y = 0f; y <= height; y += minorStep)
+        // Horizontal lines
+        for (int i = 0; i <= horizontalLines; i++)
         {
-            bool isMajor = Mathf.Abs((y * 100f) % (majorStep * 100f)) < 0.01f;
+            float y = i * minorStepM;
+            float normY = y - heightM / 2f;
 
-            Vector3 start = new Vector3(-width / 2f, y - height / 2f, zOffset);
-            Vector3 end   = new Vector3( width / 2f, y - height / 2f, zOffset);
+            bool isMajor = (i % majorFrequency == 0);
+
+            Vector3 start = new Vector3(-widthM / 2f, normY, 0f) + forwardOffset;
+            Vector3 end   = new Vector3(widthM / 2f, normY, 0f) + forwardOffset;
 
             DrawLine(start, end, isMajor ? majorLinePrefab : minorLinePrefab);
         }
+
+        PlaceLabel(heightM, widthM);
+    }
+
+
+    // Place label in bottom-right corner
+    void PlaceLabel(float height, float width)
+    {
+        if (labelPrefab == null) return;
+
+        GameObject label = Instantiate(labelPrefab, gridParent);
+        
+        float margin = 0.05f; // how far in from the corner (in meters)
+
+        Vector3 localPos = new Vector3(width / 2f - margin, -height / 2f + margin, -0.01f);
+        label.transform.localPosition = localPos;
+        label.transform.localRotation = Quaternion.Euler(90, 0, 0);
     }
 
     private void DrawLine(Vector3 localStart, Vector3 localEnd, GameObject prefab)
     {
-        GameObject obj = Instantiate(prefab);
-        obj.transform.SetParent(gridParent);
+        GameObject obj = Instantiate(prefab, gridParent);
+        obj.transform.localPosition = Vector3.zero; // <- Forces local position
+
 
         LineRenderer lr = obj.GetComponent<LineRenderer>();
-        lr.useWorldSpace = true;
+        lr.useWorldSpace = false;
 
-        Vector3 worldStart = drawingPlane.TransformPoint(localStart);
-        Vector3 worldEnd   = drawingPlane.TransformPoint(localEnd);
+        // Normalize for drawingPlane scale
+        Vector3 inverseScale = new Vector3(
+            1f / drawingPlane.localScale.x,
+            1f / drawingPlane.localScale.y,
+            1f / drawingPlane.localScale.z
+        );
 
         lr.positionCount = 2;
-        lr.SetPosition(0, worldStart);
-        lr.SetPosition(1, worldEnd);
+        lr.SetPosition(0, Vector3.Scale(localStart, inverseScale));
+        lr.SetPosition(1, Vector3.Scale(localEnd, inverseScale));
     }
+
+
 }

@@ -32,8 +32,7 @@ public class ResizeBoardUI : MonoBehaviour
     void ApplyResize()
     {
         // Validate and parse input
-        if (float.TryParse(widthInput.text, out float widthCM) &&
-            float.TryParse(heightInput.text, out float heightCM))
+        if (float.TryParse(widthInput.text, out float widthCM) && float.TryParse(heightInput.text, out float heightCM))
         {
             // Convert from centimeters to meters
             float widthM = widthCM / 100f;
@@ -48,12 +47,15 @@ public class ResizeBoardUI : MonoBehaviour
             GridRenderer grid = drawingPlane.GetComponent<GridRenderer>();
             if (grid != null)
             {
-                grid.GenerateGrid();
+                grid.GenerateGrid(heightM, widthM);
+
             }
             else
             {
                 Debug.LogWarning("GridRenderer not found on drawingPlane.");
             }
+            heightCM = 0;
+            widthCM = 0;
         }
         else
         {

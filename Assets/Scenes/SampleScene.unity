@@ -2152,10 +2152,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   drawingPlane: {fileID: 1862756492}
-  majorStepCM: 10
-  minorStepCM: 5
+  majorStep: 0.1
+  minorStep: 0.05
   majorLinePrefab: {fileID: 988376359038507777, guid: f9c0fecc513edb04c9886f2e6c191c8f, type: 3}
   minorLinePrefab: {fileID: 5932796468437778660, guid: 901fdf8e8fdc3be4098527f79e754677, type: 3}
+  labelPrefab: {fileID: 1864523812675977503, guid: 40eb97a8824109d439620c812a2a5db7, type: 3}
 --- !u!1001 &2007159599
 PrefabInstance:
   m_ObjectHideFlags: 0
