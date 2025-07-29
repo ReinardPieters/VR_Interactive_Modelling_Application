@@ -13,7 +13,7 @@ public class ResizeBoardUI : MonoBehaviour
 
     [Header("Target Drawing Plane")]
     public Transform drawingPlane;
-
+    private const float worldScaleFactor = 50f;
     void Start()
     {
         // Hide the panel at the start
@@ -35,8 +35,8 @@ public class ResizeBoardUI : MonoBehaviour
         if (float.TryParse(widthInput.text, out float widthCM) && float.TryParse(heightInput.text, out float heightCM))
         {
             // Convert from centimeters to meters
-            float widthM = widthCM / 100f;
-            float heightM = heightCM / 100f;
+            float widthM = widthCM / worldScaleFactor;
+            float heightM = heightCM / worldScaleFactor;
 
             // Apply scale directly to quad (which is 1x1 in size)
             drawingPlane.localScale = new Vector3(widthM, heightM, 1f);

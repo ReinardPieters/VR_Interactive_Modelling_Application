@@ -15,6 +15,9 @@ public class GridRenderer : MonoBehaviour
 
     private Transform gridParent;
 
+    // Scale factor to make board look big enough in VR
+    // 1 real-world meter = 10 Unity units
+    private const float worldScaleFactor = 10f; // 10x scale (1m → 10 units)
 
 
     public void GenerateGrid(float heightM, float widthM)
