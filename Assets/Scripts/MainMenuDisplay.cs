@@ -1,22 +1,29 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public class MainMenuDisplay : MonoBehaviour
+public class ToggleCanvasXR : MonoBehaviour
 {
-	public GameObject targetCanvas;
-	public InputActionProperty toggleAction; // Assign in Inspector
-
+	public GameObject canvasToToggle; // Assign in Inspector
 	private bool isVisible = true;
 
-	void OnEnable() => toggleAction.action.Enable();
-	void OnDisable() => toggleAction.action.Disable();
+	public InputActionProperty leftGripAction;
+
+	void OnEnable()
+	{
+		leftGripAction.action.Enable();
+	}
+
+	void OnDisable()
+	{
+		leftGripAction.action.Disable();
+	}
 
 	void Update()
 	{
-		if (toggleAction.action.WasPressedThisFrame())
+		if (leftGripAction.action.WasPressedThisFrame())
 		{
 			isVisible = !isVisible;
-			targetCanvas.SetActive(isVisible);
+			canvasToToggle.SetActive(isVisible);
 		}
 	}
 }
