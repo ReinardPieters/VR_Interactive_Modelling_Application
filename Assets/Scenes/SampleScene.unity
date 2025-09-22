@@ -4646,17 +4646,25 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f1ac1815e634c7b4f8bbc9a5f5dbeed8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  targetCanvas: {fileID: 1685757726}
-  toggleAction:
+  canvasToToggle: {fileID: 1685757726}
+  leftGripAction:
     m_UseReference: 0
     m_Action:
-      m_Name: Toggle
+      m_Name: Left Grip
       m_Type: 0
       m_ExpectedControlType: 
-      m_Id: f4cb3a50-df51-4da1-9044-985e291f9868
+      m_Id: 3d052efb-35d2-4249-9f53-afcb69539057
       m_Processors: 
       m_Interactions: 
-      m_SingletonActionBindings: []
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: b73e1960-0abd-4625-95c5-7c3234984ff3
+        m_Path: <XRController>{LeftHand}/{GripButton}
+        m_Interactions: Press
+        m_Processors: 
+        m_Groups: 
+        m_Action: Left Grip
+        m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
 --- !u!1 &1609039043
