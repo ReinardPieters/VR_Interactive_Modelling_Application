@@ -71,9 +71,11 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         // Spawn the point at the current raycast hit location when the trigger is released
         if (currentRaycastHitPoint != Vector3.zero && drawingQuadTransform != null)
         {
+            float quadZ = drawingQuadTransform.position.z;
+
             // Instantiate a point at the current hit location with Z position locked to 0
             GameObject newPoint = Instantiate(pointPrefab, currentRaycastHitPoint, Quaternion.identity);
-            newPoint.transform.position = new Vector3(newPoint.transform.position.x, newPoint.transform.position.y, 0);
+            newPoint.transform.position = new Vector3(newPoint.transform.position.x, newPoint.transform.position.y, (float)quadZ);
 
             // Make the spawned point a child of the drawing quad (dragged object)
             newPoint.transform.SetParent(drawingQuadTransform);
