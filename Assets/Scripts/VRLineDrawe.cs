@@ -58,33 +58,47 @@ public class VRLineDrawerOpenXR : MonoBehaviour
             DrawRaycastLine(rightController.position, ray.GetPoint(maxRayDistance));
         }
     }
+    private int pointCount = 0;   // counter for placed points
 
     private void OnTriggerReleased(InputAction.CallbackContext ctx)
     {
         if (!isDrawing) return;
         isDrawing = false;
-        Debug.Log("Trigger Released!");
 
-        // Reset the line when the trigger is released
         lineRenderer.positionCount = 0;
 
-        // Spawn the point at the current raycast hit location when the trigger is released
         if (currentRaycastHitPoint != Vector3.zero && drawingQuadTransform != null)
         {
-            float quadZ = drawingQuadTransform.position.z;
+            // make sure we actually hit the drawing quad
+            Ray ray = new Ray(rightController.position, rightController.forward);
+            RaycastHit hitInfo;
+            if (Physics.Raycast(ray, out hitInfo, maxRayDistance, raycastLayerMask) &&
+                hitInfo.transform == drawingQuadTransform)
+            {
+                float quadZ = drawingQuadTransform.position.z;
 
-            // Instantiate a point at the current hit location with Z position locked to 0
-            GameObject newPoint = Instantiate(pointPrefab, currentRaycastHitPoint, Quaternion.identity);
-            newPoint.transform.position = new Vector3(newPoint.transform.position.x, newPoint.transform.position.y, (float)quadZ);
+                // snap the point’s Z to the quad
+                Vector3 spawnPos = new Vector3(currentRaycastHitPoint.x,
+                                            currentRaycastHitPoint.y,
+                                            quadZ);
 
-            // Make the spawned point a child of the drawing quad (dragged object)
-            newPoint.transform.SetParent(drawingQuadTransform);
-        }
-        else
-        {
-            Debug.Log("No point spawned, as no valid drawing quad was hit.");
+                GameObject newPoint = Instantiate(pointPrefab, spawnPos, Quaternion.identity);
+                newPoint.transform.SetParent(drawingQuadTransform, true);
+
+                // increment counter and rename
+                pointCount++;
+                newPoint.name = "sphere_" + pointCount;
+
+                Debug.Log("Spawned " + newPoint.name + " at " + spawnPos);
+            }
+            else
+            {
+                Debug.Log("Ray did not hit the drawing quad → no point spawned");
+            }
         }
     }
+
+
 
     private void Update()
     {
