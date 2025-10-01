@@ -1,9 +1,15 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.Interaction.Toolkit;
 
 public class VRLineDrawerOpenXR : MonoBehaviour
 {
+    private Dictionary<double, string> tools = new Dictionary<double, string>();
+
     public InputActionProperty triggerAction; 
     public Transform rightController;
     public float maxRayDistance = 10f; // Max distance for raycast
@@ -17,7 +23,16 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     private bool isDrawing = false;
     private GameObject spawnedPoint; // Reference to the spawned point
     private Vector3 currentRaycastHitPoint; // To store the current hit point for later point creation
-
+    private void Start()
+    {
+        //add subtooms denoted by key x.y
+        tools.Add(0, "Point");
+        tools.Add(1, "Line");
+        tools.Add(2, "Arc");
+        tools.Add(3, "Circle");
+        tools.Add(4, "Rectangle");
+        tools.Add(5, "Polygon");
+    } 
     void OnEnable()
     {
         triggerAction.action.Enable();
