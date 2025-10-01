@@ -10,7 +10,17 @@ public class SelectionTool2D : MonoBehaviour
     public StrokeStore store;
     public HistoryManager history;
 
-    [Header("Input")]
+    [Header("Input (bind these in Inspector)")]
+    // Press to select nearest polyline
+    public InputActionProperty selectTrigger;   // Button / Press
+    // Press to commit transform (creates a snapshot for undo/redo)
+    public InputActionProperty commitGrip;      // Button / Press
+    // Left stick (Vector2): move selection in mm
+    public InputActionProperty moveAxis;        // Value / Vector2
+    // Right stick X: rotate selection (deg/sec)
+    public InputActionProperty rotateAxisX;     // Value / Axis (1D)
+    // Right stick Y: uniform scale (per second)
+    public InputActionProperty scaleAxisY;      // Value / Axis (1D)
 
     [Header("Tuning (mm, deg)")]
     public float selectMaxDistMM = 8f;
@@ -18,76 +28,89 @@ public class SelectionTool2D : MonoBehaviour
     public float rotSpeedDegPerSec = 90f;
     public float scalePerSec = 0.5f;
 
+    // --- internal state
     int selectedIndex = -1;
-    bool hasSelection => (selectedIndex >= 0 && selectedIndex < store.polylines.Count);
+    Vector2 pivotMM; // centroid of selected polyline
+    bool HasSelection => (store && selectedIndex >= 0 && selectedIndex < store.polylines.Count);
 
     void OnEnable()
     {
-        selectTrigger.action.Enable();
-        commitGrip.action.Enable();
-        moveAxis.action.Enable();
-        rotateAxisX.action.Enable();
-        scaleAxisY.action.Enable();
+        if (selectTrigger.reference != null) selectTrigger.action.Enable();
+        if (commitGrip.reference != null) commitGrip.action.Enable();
+        if (moveAxis.reference != null) moveAxis.action.Enable();
+        if (rotateAxisX.reference != null) rotateAxisX.action.Enable();
+        if (scaleAxisY.reference != null) scaleAxisY.action.Enable();
     }
+
     void OnDisable()
     {
-        selectTrigger.action.Disable();
-        commitGrip.action.Disable();
-        moveAxis.action.Disable();
-        rotateAxisX.action.Disable();
-        scaleAxisY.action.Disable();
+        if (selectTrigger.reference != null) selectTrigger.action.Disable();
+        if (commitGrip.reference != null) commitGrip.action.Disable();
+        if (moveAxis.reference != null) moveAxis.action.Disable();
+        if (rotateAxisX.reference != null) rotateAxisX.action.Disable();
+        if (scaleAxisY.reference != null) scaleAxisY.action.Disable();
     }
 
     void Update()
     {
-        if (aimCamera == null || projector == null || store == null) return;
+        if (!aimCamera || !projector || !store) return;
 
-        // Selection
-        if (selectTrigger.action.WasPressedThisFrame())
+        // --- SELECT ---
+        if (selectTrigger.reference != null && selectTrigger.action.WasPressedThisFrame())
         {
             var ray = new Ray(aimCamera.transform.position, aimCamera.transform.forward);
             if (projector.RayToPlane(ray, out _, out var hitMM))
             {
                 selectedIndex = FindNearestPolyline(hitMM, selectMaxDistMM);
-                if (hasSelection) pivotMM = ComputeCentroid(store.polylines[selectedIndex].ptsMM);
+                if (HasSelection) pivotMM = ComputeCentroid(store.polylines[selectedIndex].ptsMM);
             }
         }
 
-        if (!hasSelection) return;
+        if (!HasSelection) return;
 
-        // Move
-        var mv = moveAxis.action.ReadValue<Vector2>(); // x,y [-1..1]
-        if (mv.sqrMagnitude > 0.0001f)
+        // --- MOVE ---
+        if (moveAxis.reference != null)
         {
-            Vector2 delta = mv * (moveSpeedMMPerSec * Time.deltaTime);
-            TranslateSelected(delta);
-            pivotMM += delta;
+            Vector2 mv = moveAxis.action.ReadValue<Vector2>(); // [-1..1]
+            if (mv.sqrMagnitude > 0.0001f)
+            {
+                Vector2 delta = mv * (moveSpeedMMPerSec * Time.deltaTime);
+                TranslateSelected(delta);
+                pivotMM += delta;
+            }
         }
 
-        // Rotate
-        float rx = rotateAxisX.action.ReadValue<float>(); // [-1..1]
-        if (Mathf.Abs(rx) > 0.001f)
+        // --- ROTATE ---
+        if (rotateAxisX.reference != null)
         {
-            float deg = rx * rotSpeedDegPerSec * Time.deltaTime;
-            RotateSelected(pivotMM, deg);
+            float rx = rotateAxisX.action.ReadValue<float>(); // [-1..1]
+            if (Mathf.Abs(rx) > 0.001f)
+            {
+                float deg = rx * rotSpeedDegPerSec * Time.deltaTime;
+                RotateSelected(pivotMM, deg);
+            }
         }
 
-        // Scale (uniform)
-        float sy = scaleAxisY.action.ReadValue<float>(); // [-1..1]
-        if (Mathf.Abs(sy) > 0.001f)
+        // --- SCALE (uniform) ---
+        if (scaleAxisY.reference != null)
         {
-            float s = 1f + sy * (scalePerSec * Time.deltaTime);
-            ScaleSelected(pivotMM, s);
+            float sy = scaleAxisY.action.ReadValue<float>(); // [-1..1]
+            if (Mathf.Abs(sy) > 0.001f)
+            {
+                float s = 1f + sy * (scalePerSec * Time.deltaTime);
+                ScaleSelected(pivotMM, s);
+            }
         }
 
-        // Commit
-        if (commitGrip.action.WasPressedThisFrame() && history)
+        // --- COMMIT (snapshot for Undo/Redo) ---
+        if (commitGrip.reference != null && commitGrip.action.WasPressedThisFrame() && history)
         {
             history.PushSnapshot();
             Debug.Log("Selection committed (snapshot).");
         }
     }
 
+    // ---------- helpers ----------
     int FindNearestPolyline(Vector2 mm, float maxDistMM)
     {
         int idx = -1; float best = maxDistMM;
@@ -115,8 +138,9 @@ public class SelectionTool2D : MonoBehaviour
     static float DistancePointToSegment(Vector2 p, Vector2 a, Vector2 b)
     {
         var ab = b - a;
-        float t = Vector2.Dot(p - a, ab) / Vector2.Dot(ab, ab);
-        t = Mathf.Clamp01(t);
+        float ab2 = Vector2.Dot(ab, ab);
+        if (ab2 < Mathf.Epsilon) return Vector2.Distance(p, a);
+        float t = Mathf.Clamp01(Vector2.Dot(p - a, ab) / ab2);
         return Vector2.Distance(p, a + t * ab);
     }
 
