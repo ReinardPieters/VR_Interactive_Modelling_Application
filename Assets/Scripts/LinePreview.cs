@@ -10,7 +10,6 @@ public class LinePreview : MonoBehaviour
         lr = GetComponent<LineRenderer>();
         lr.positionCount = 0;
         lr.useWorldSpace = true;
-        lr.widthMultiplier = 0.0015f; 
     }
 
     public void Show(Vector3 a, Vector3 b)
