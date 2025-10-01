@@ -11,11 +11,11 @@ public class SelectionTool2D : MonoBehaviour
     public HistoryManager history;
 
     [Header("Input")]
-    public InputActionProperty selectTrigger;     // click to select nearest polyline
-    public InputActionProperty commitGrip;        // commit transform → snapshot
-    public InputActionProperty moveAxis;          // Vector2 (Left joystick) moves selection
-    public InputActionProperty rotateAxisX;       // float (Right joystick X) rotates
-    public InputActionProperty scaleAxisY;        // float (Right joystick Y) uniform scale
+    public InputActionProperty selectTrigger;     
+    public InputActionProperty commitGrip;       
+    public InputActionProperty moveAxis;          
+    public InputActionProperty rotateAxisX;      
+    public InputActionProperty scaleAxisY;        
 
     [Header("Tuning (mm, deg)")]
     public float selectMaxDistMM = 8f;
@@ -24,7 +24,7 @@ public class SelectionTool2D : MonoBehaviour
     public float scalePerSec = 0.5f;
 
     int selectedIndex = -1;
-    Vector2 pivotMM; // selection pivot (centroid)
+    Vector2 pivotMM; 
     bool hasSelection => (selectedIndex >= 0 && selectedIndex < store.polylines.Count);
 
     void OnEnable()

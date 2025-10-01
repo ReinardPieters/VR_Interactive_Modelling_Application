@@ -4,7 +4,7 @@ using UnityEngine.XR.Interaction.Toolkit;
 
 public class VRLineDrawerOpenXR : MonoBehaviour
 {
-    public InputActionProperty triggerAction; // assign in Inspector
+    public InputActionProperty triggerAction; 
     public Transform rightController;
 
     private bool isDrawing = false;
