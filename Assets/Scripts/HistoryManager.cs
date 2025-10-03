@@ -31,18 +31,17 @@ public class HistoryManager : MonoBehaviour
         if (!store) return;
         var snap = DeepCopy(store.polylines);
         undoStack.Push(snap);
-        if (undoStack.Count > maxSnapshots) _ = undoStack.ToArray(); // trim not strictly needed
+        if (undoStack.Count > maxSnapshots) _ = undoStack.ToArray(); 
         redoStack.Clear(); // invalidate redo on new action
     }
 
     public void Undo()
     {
-        if (undoStack.Count <= 1 || !store) return; // keep at least one baseline
-        // Current state ? redo
+        if (undoStack.Count <= 1 || !store) return; 
         var cur = DeepCopy(store.polylines);
         redoStack.Push(cur);
 
-        // Pop previous from undo ? apply
+        // Pop previous from undo 
         _ = undoStack.Pop();
         var prev = DeepCopy(undoStack.Peek());
         store.polylines = prev;
@@ -60,7 +59,6 @@ public class HistoryManager : MonoBehaviour
         Debug.Log("Redo: applied next snapshot. Count=" + store.polylines.Count);
     }
 
-    // Utility: deep copy of polylines
     static List<PolylineMM> DeepCopy(List<PolylineMM> src)
     {
         var dst = new List<PolylineMM>(src.Count);
