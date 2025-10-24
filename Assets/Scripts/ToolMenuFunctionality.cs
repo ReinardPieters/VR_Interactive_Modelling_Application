@@ -1,10 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.InputSystem;
+using UnityEngine.XR.Interaction.Toolkit;
 
 public class ToolMenuFunctionality : MonoBehaviour
 {
-	//Vars for images
+	// === Tool Menu Sprites ===
 	public Sprite PlainToolMenu;
 	public Sprite PointSelected;
 	public Sprite LineSelected;
@@ -18,56 +19,79 @@ public class ToolMenuFunctionality : MonoBehaviour
 	public Sprite FromCornerSelected;
 	public Sprite PolygonSelected;
 
-	//Display Image
+	// === Display Elements ===
 	public Image ToolMenuDisplay;
 	public RectTransform target;
 
-	//Analog Input
+	// === Input Actions ===
 	public InputActionProperty analogAction;
 	private Vector2 analogValue;
 	private bool analogInUse = false;
 
-	//Grip Button Input
 	public InputActionProperty gripAction;
 
-	//Bool to track if menu is visible
+	// === Menu State ===
 	private bool isVisible = false;
 	public GameObject canvasToToggle;
 
-	//Var to Track Current Tool
+	// === Tool Selection Tracking ===
 	private int currentTool = 0;
 
-	//Controller
+	// === Controller Transform ===
 	public Transform controllerTransform;
 
-	//Enable /Disable Input Actions
+	// === XR Locomotion Lock ===
+	public GameObject xrOrigin; // Assign your XR Origin (XRRig) in the Inspector
+	private ContinuousMoveProviderBase moveProvider;
+	private ContinuousTurnProviderBase turnProvider;
+	private UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationProvider teleportProvider;
+
+	// === Camera Lock ===
+	private Camera xrCamera;
+	private Vector3 lockedCamPosition;
+	private Quaternion lockedCamRotation;
+	private bool cameraLocked = false;
+
+	// === Enable / Disable Input Actions ===
 	void OnEnable()
 	{
 		analogAction.action.Enable();
 		gripAction.action.Enable();
 	}
+
 	void OnDisable()
 	{
 		analogAction.action.Disable();
 		gripAction.action.Disable();
 	}
 
-	//void for Start
 	void Start()
 	{
 		canvasToToggle.SetActive(isVisible);
 		ToolMenuDisplay.sprite = PlainToolMenu;
+
+		// Setup XR providers
+		if (xrOrigin)
+		{
+			moveProvider = xrOrigin.GetComponentInChildren<ContinuousMoveProviderBase>();
+			turnProvider = xrOrigin.GetComponentInChildren<ContinuousTurnProviderBase>();
+			teleportProvider = xrOrigin.GetComponentInChildren<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationProvider>();
+		}
+
+		xrCamera = Camera.main;
 	}
 
-	//Update function
 	void Update()
 	{
-		//Toggle Menu Visibility
+		// === Toggle Menu Visibility ===
 		if (gripAction.action.WasPressedThisFrame())
 		{
 			isVisible = true;
 			canvasToToggle.SetActive(isVisible);
+			LockXRMovement(true);
+			LockXRCamera(true);
 		}
+
 		if (gripAction.action.WasReleasedThisFrame())
 		{
 			isVisible = false;
@@ -75,111 +99,124 @@ public class ToolMenuFunctionality : MonoBehaviour
 			ToolMenuDisplay.sprite = PlainToolMenu;
 			currentTool = 0;
 			target.rotation = Quaternion.Euler(0, 0, 0f);
+			LockXRMovement(false);
+			LockXRCamera(false);
 		}
-		//If Menu is Visible, Check Analog Input
+
+		// === Handle Tool Selection ===
 		if (isVisible)
 		{
 			analogValue = analogAction.action.ReadValue<Vector2>();
+			HandleAnalogInput();
+		}
 
-			//Change current tool based on analog input
-			if (currentTool != 0 && analogValue.x > 0.7f && analogValue.y < 0.5f && analogValue.y > -0.5f && !analogInUse)
-			{
-				currentTool += 1;
-				if (currentTool > 6)
-				{
-					currentTool = 1;
-				}
-				analogInUse = true;
-			}
-			if (currentTool != 0 && analogValue.x < -0.7f && analogValue.y < 0.5f && analogValue.y > -0.5f && !analogInUse)
-			{
-				currentTool += -1;
-				if (currentTool < 1)
-				{
-					currentTool = 6;
-				}
-				analogInUse = true;
-			}
-			//Reset Analog In Use
-			if (analogValue.x < 0.5f && analogValue.x > -0.5f && analogValue.y < 0.5f && analogValue.y > -0.5f)
-			{
-				analogInUse = false;
-			}
+		// === Keep Camera Locked ===
+		if (cameraLocked && xrCamera != null)
+		{
+			xrCamera.transform.position = lockedCamPosition;
+			xrCamera.transform.rotation = lockedCamRotation;
+		}
+	}
 
-			//Determine which tool is selected based on analog input
-			//Selection if tool is 0
-			if (currentTool == 0 && analogValue.x < -0.7f && analogValue.y < 0.5f && analogValue.y > -0.5f)
-			{
-				currentTool = 1;
-				analogInUse = true;
-			}
-			if (currentTool == 0 && analogValue.x > 0.7f && analogValue.y < 0.5f && analogValue.y > -0.5f)
-			{
-				currentTool = 3;
-				analogInUse = true;
-			}
-			if (currentTool == 0 && analogValue.x < 0.5f && analogValue.x > -0.5f && analogValue.y > 0.7f)
-			{
-				currentTool = 2;
-				analogInUse = true;
-			}
+	private void HandleAnalogInput()
+	{
+		//Change current tool based on analog input
+		if (currentTool != 0 && analogValue.x > 0.7f && analogValue.y < 0.5f && analogValue.y > -0.5f && !analogInUse)
+		{
+			currentTool += 1;
+			if (currentTool > 6) currentTool = 1;
+			analogInUse = true;
+		}
+		if (currentTool != 0 && analogValue.x < -0.7f && analogValue.y < 0.5f && analogValue.y > -0.5f && !analogInUse)
+		{
+			currentTool -= 1;
+			if (currentTool < 1) currentTool = 6;
+			analogInUse = true;
+		}
 
-			//Change display based on current tool
-			if (currentTool == 1)
-			{
+		//Reset Analog In Use
+		if (analogValue.x < 0.5f && analogValue.x > -0.5f && analogValue.y < 0.5f && analogValue.y > -0.5f)
+			analogInUse = false;
+
+		//Selection if tool is 0
+		if (currentTool == 0 && analogValue.x < -0.7f && Mathf.Abs(analogValue.y) < 0.5f)
+		{
+			currentTool = 1; analogInUse = true;
+		}
+		if (currentTool == 0 && analogValue.x > 0.7f && Mathf.Abs(analogValue.y) < 0.5f)
+		{
+			currentTool = 3; analogInUse = true;
+		}
+		if (currentTool == 0 && Mathf.Abs(analogValue.x) < 0.5f && analogValue.y > 0.7f)
+		{
+			currentTool = 2; analogInUse = true;
+		}
+
+		// === Tool Display Logic ===
+		switch (currentTool)
+		{
+			case 1:
 				ToolMenuDisplay.sprite = PointSelected;
 				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, -60f);
-			}
-			if (currentTool == 2)
-			{
+				break;
+
+			case 2:
 				ToolMenuDisplay.sprite = LineSelected;
 				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 0f);
+				if (analogValue.y >= 0.5f && analogValue.x <= -0.5f) ToolMenuDisplay.sprite = LinelineSelected;
+				if (analogValue.y > 0.7f && Mathf.Abs(analogValue.x) < 0.5f) ToolMenuDisplay.sprite = ParallelLineSelected;
+				if (analogValue.y >= 0.5f && analogValue.x >= 0.5f) ToolMenuDisplay.sprite = AngleLineSelected;
+				break;
 
-				//check for sub tools
-				if (analogValue.y >= 0.5f && analogValue.x <= -0.5f)
-				{
-					ToolMenuDisplay.sprite = LinelineSelected;
-				}
-				if (analogValue.y > 0.7f && analogValue.x > -0.5f && analogValue.x < 0.5f)
-				{
-					ToolMenuDisplay.sprite = ParallelLineSelected;
-				}
-				if (analogValue.y >= 0.5f && analogValue.x >= 0.5f)
-				{
-					ToolMenuDisplay.sprite = AngleLineSelected;
-				}
-
-			}
-			if (currentTool == 3)
-			{
+			case 3:
 				ToolMenuDisplay.sprite = ArcSelected;
 				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 60f);
-			}
-			if (currentTool == 4)
-			{
+				break;
+
+			case 4:
 				ToolMenuDisplay.sprite = CircleSelected;
 				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 120f);
-			}
-			if (currentTool == 5)
-			{
+				break;
+
+			case 5:
 				ToolMenuDisplay.sprite = RectangleSelected;
 				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 180f);
+				if (analogValue.y >= 0.5f && analogValue.x < 0f) ToolMenuDisplay.sprite = FromCenterSelected;
+				if (analogValue.y >= 0.5f && analogValue.x > 0f) ToolMenuDisplay.sprite = FromCornerSelected;
+				break;
 
-				//Check for sub tools
-				if (analogValue.y >= 0.5f && analogValue.x < 0f)
-				{
-					ToolMenuDisplay.sprite = FromCenterSelected;
-				}
-				if (analogValue.y >= 0.5f && analogValue.x > 0f)
-				{
-					ToolMenuDisplay.sprite = FromCornerSelected;
-				}
-			}
-			if (currentTool == 6)
-			{
+			case 6:
 				ToolMenuDisplay.sprite = PolygonSelected;
 				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, -120f);
-			}
+				break;
+
+			default:
+				ToolMenuDisplay.sprite = PlainToolMenu;
+				break;
+		}
+	}
+
+	// === XR Locking Methods ===
+	private void LockXRMovement(bool lockMovement)
+	{
+		if (moveProvider) moveProvider.enabled = !lockMovement;
+		if (turnProvider) turnProvider.enabled = !lockMovement;
+		if (teleportProvider) teleportProvider.enabled = !lockMovement;
+	}
+
+	private void LockXRCamera(bool lockCam)
+	{
+		if (!xrCamera) return;
+
+		if (lockCam)
+		{
+			lockedCamPosition = xrCamera.transform.position;
+			lockedCamRotation = xrCamera.transform.rotation;
+			cameraLocked = true;
+		}
+		else
+		{
+			cameraLocked = false;
 		}
 	}
 }
