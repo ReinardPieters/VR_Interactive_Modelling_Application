@@ -115,7 +115,6 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         }
 
         isDrawing = true;
-        Debug.Log("Trigger Pressed!");
 
         // Perform the raycast from the right controller
         Ray ray = new Ray(rightController.position, rightController.forward);
@@ -365,13 +364,22 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         }
         else if (currentTool == 2 && orderedSelectedDots.Count >= 2) // Line tool
         {
-            CreateLinesFromSelection();
+            int lineSubTool = toolMenu != null ? toolMenu.GetLineSubTool() : 0;
+            
+            if (lineSubTool == 2 && orderedSelectedDots.Count == 3) // Parallel line sub-tool
+            {
+                CreateParallelLine();
+            }
+            else
+            {
+                CreateLinesFromSelection();
+            }
         }
         else if (currentTool == 3 && orderedSelectedDots.Count >= 2) // Arc tool
         {
             CreateArcsFromSelection();
         }
-        else
+        else 
         {
             Debug.Log("Need appropriate tool selected and enough dots to create shapes");
         }
@@ -553,5 +561,75 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         {
             Debug.LogWarning("Line prefab not assigned!");
         }
+    }
+    
+    private void CreateParallelLine()
+    {
+        Vector3 point1 = orderedSelectedDots[0].transform.position;
+        Vector3 point2 = orderedSelectedDots[1].transform.position;
+        Vector3 point3 = orderedSelectedDots[2].transform.position;
+        
+        // Calculate the direction vector from point1 to point2
+        Vector3 lineDirection = (point2 - point1);
+        
+        // Calculate point4 by adding the same direction vector to point3
+        Vector3 point4 = point3 + lineDirection;
+        
+        // Create the original line (1 to 2)
+        CreateLineBetweenDots(orderedSelectedDots[0], orderedSelectedDots[1]);
+        
+        // Create the parallel line (3 to 4)
+        CreateLineBetweenSpecificPoints(point3, point4);
+        
+        // Create point 4
+        CreatePointAtPosition(point4);
+        
+        Debug.Log("Created parallel line from " + orderedSelectedDots[2].name + " with same direction as " + orderedSelectedDots[0].name + "-" + orderedSelectedDots[1].name);
+        ClearOrderedSelection();
+    }
+    
+    private Vector3 GetClosestPointOnLine(Vector3 lineStart, Vector3 lineEnd, Vector3 point)
+    {
+        Vector3 lineDirection = lineEnd - lineStart;
+        float lineLength = lineDirection.magnitude;
+        lineDirection.Normalize();
+        
+        Vector3 toPoint = point - lineStart;
+        float projectionLength = Vector3.Dot(toPoint, lineDirection);
+        
+        // Clamp to line segment
+        projectionLength = Mathf.Clamp(projectionLength, 0f, lineLength);
+        
+        return lineStart + lineDirection * projectionLength;
+    }
+    
+    private void CreateLineBetweenSpecificPoints(Vector3 startPoint, Vector3 endPoint)
+    {
+        if (linePrefab != null)
+        {
+            GameObject newLine = Instantiate(linePrefab, drawingQuadTransform);
+            LineRenderer lr = newLine.GetComponent<LineRenderer>();
+            
+            if (lr != null)
+            {
+                lr.positionCount = 2;
+                lr.SetPosition(0, startPoint);
+                lr.SetPosition(1, endPoint);
+            }
+        }
+    }
+    
+    private void CreatePointAtPosition(Vector3 position)
+    {
+        GameObject newPoint = Instantiate(pointPrefab, position, Quaternion.identity);
+        newPoint.transform.SetParent(drawingQuadTransform, true);
+        
+        var col = newPoint.GetComponent<Collider>();
+        if (!col) newPoint.AddComponent<SphereCollider>();
+        
+        pointCount++;
+        newPoint.name = "sphere_" + pointCount;
+        
+        allPoints.Add(newPoint);
     }
 }

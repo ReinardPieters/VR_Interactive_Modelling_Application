@@ -205,6 +205,24 @@ public class ToolMenuFunctionality : MonoBehaviour
 			string toolName = currentTool < toolNames.Length ? toolNames[currentTool] : "Unknown";
 			Debug.Log("Tool selected: " + toolName);
 			previousTool = currentTool;
+			previousLineSubTool = -1; // Reset sub-tool tracking when main tool changes
+		}
+		
+		// Log line sub-tool changes
+		if (currentTool == 2)
+		{
+			int currentSubTool = 0;
+			if (analogValue.y >= 0.5f && analogValue.x <= -0.5f) currentSubTool = 1; // LinelineSelected
+			else if (analogValue.y > 0.7f && Mathf.Abs(analogValue.x) < 0.5f) currentSubTool = 2; // ParallelLineSelected
+			else if (analogValue.y >= 0.5f && analogValue.x >= 0.5f) currentSubTool = 3; // AngleLineSelected
+			
+			if (currentSubTool != previousLineSubTool)
+			{
+				string[] subToolNames = { "Default Line", "Line-Line", "Parallel Line", "Angle Line" };
+				string subToolName = currentSubTool < subToolNames.Length ? subToolNames[currentSubTool] : "Unknown";
+				Debug.Log("Line sub-tool: " + subToolName);
+				previousLineSubTool = currentSubTool;
+			}
 		}
 	}
 
@@ -212,6 +230,20 @@ public class ToolMenuFunctionality : MonoBehaviour
 	public int GetCurrentTool()
 	{
 		return currentTool > 0 ? currentTool : lastSelectedTool;
+	}
+	
+	// === Public Method to Get Line Sub-Tool ===
+	private int previousLineSubTool = -1;
+	
+	public int GetLineSubTool()
+	{
+		if (currentTool == 2) // Only for Line tool
+		{
+			if (analogValue.y >= 0.5f && analogValue.x <= -0.5f) return 1; // LinelineSelected
+			if (analogValue.y > 0.7f && Mathf.Abs(analogValue.x) < 0.5f) return 2; // ParallelLineSelected
+			if (analogValue.y >= 0.5f && analogValue.x >= 0.5f) return 3; // AngleLineSelected
+		}
+		return 0; // Default line
 	}
 
 	// === XR Locking Methods ===
