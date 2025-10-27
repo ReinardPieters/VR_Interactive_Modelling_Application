@@ -39,6 +39,10 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     
     // List to track order of selected dots for non-point tools
     private List<GameObject> orderedSelectedDots = new List<GameObject>();
+    
+    // Arc parameters
+    public float arcHeight = 0.5f; // How high the arc curves
+    public int arcResolution = 20; // Number of points in the arc
 
  
     void OnEnable()
@@ -71,9 +75,23 @@ public class VRLineDrawerOpenXR : MonoBehaviour
             
             if (currentTool != 1) // If not Point tool
             {
-                // Add to ordered selection list (allow duplicates for shapes like triangles)
-                orderedSelectedDots.Add(hoveredPoint);
-                Debug.Log("Selected dot " + hoveredPoint.name + " (Order: " + orderedSelectedDots.Count + ")");
+                if (currentTool == 3) // Arc tool - no duplicates
+                {
+                    if (!orderedSelectedDots.Contains(hoveredPoint))
+                    {
+                        orderedSelectedDots.Add(hoveredPoint);
+                        Debug.Log("Selected dot " + hoveredPoint.name + " (Order: " + orderedSelectedDots.Count + ")");
+                    }
+                    else
+                    {
+                        Debug.Log("Dot " + hoveredPoint.name + " already selected for arc");
+                    }
+                }
+                else // Other tools - allow duplicates for shapes like triangles
+                {
+                    orderedSelectedDots.Add(hoveredPoint);
+                    Debug.Log("Selected dot " + hoveredPoint.name + " (Order: " + orderedSelectedDots.Count + ")");
+                }
             }
             
             SetDotColor(hoveredPoint, selectedColor);
@@ -249,7 +267,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         hoveredPoint = bestDot;
         hoveredPrevColor = null;
 
-        if (hoveredPoint != null && !selectedPoints.Contains(hoveredPoint))
+        if (hoveredPoint != null)
         {
             var rend = hoveredPoint.GetComponent<Renderer>();
             if (rend != null) hoveredPrevColor = rend.material.color;
@@ -298,13 +316,17 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     {
         int currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
         
-        if (currentTool == 2 && orderedSelectedDots.Count >= 2) // Line tool and at least 2 dots
+        if (currentTool == 2 && orderedSelectedDots.Count >= 2) // Line tool
         {
             CreateLinesFromSelection();
         }
+        else if (currentTool == 3 && orderedSelectedDots.Count >= 2) // Arc tool
+        {
+            CreateArcsFromSelection();
+        }
         else
         {
-            Debug.Log("Need Line tool selected and at least 2 dots to create lines");
+            Debug.Log("Need Line or Arc tool selected and at least 2 dots to create shapes");
         }
     }
     
@@ -344,6 +366,87 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         else
         {
             Debug.LogWarning("Line prefab not assigned!");
+        }
+    }
+    
+    private void CreateArcsFromSelection()
+    {
+        if (orderedSelectedDots.Count < 2)
+        {
+            Debug.Log("Need at least 2 dots for arc");
+            return;
+        }
+        
+        CreateSingleArcThroughPoints();
+        Debug.Log("Created arc through " + orderedSelectedDots.Count + " points");
+        ClearOrderedSelection();
+    }
+    
+    private void CreateSingleArcThroughPoints()
+    {
+        if (linePrefab != null)
+        {
+            GameObject newArc = Instantiate(linePrefab, drawingQuadTransform);
+            LineRenderer lr = newArc.GetComponent<LineRenderer>();
+            
+            if (lr != null)
+            {
+                Vector3[] controlPoints = new Vector3[orderedSelectedDots.Count];
+                for (int i = 0; i < orderedSelectedDots.Count; i++)
+                {
+                    controlPoints[i] = orderedSelectedDots[i].transform.position;
+                }
+                
+                lr.positionCount = arcResolution;
+                
+                // Create smooth curve through all control points
+                for (int i = 0; i < arcResolution; i++)
+                {
+                    float t = i / (float)(arcResolution - 1);
+                    Vector3 curvePoint = CalculateBezierCurve(controlPoints, t);
+                    lr.SetPosition(i, curvePoint);
+                }
+                
+                Debug.Log("Created arc from " + orderedSelectedDots[0].name + " to " + orderedSelectedDots[orderedSelectedDots.Count-1].name + " through " + (orderedSelectedDots.Count-2) + " control points");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("Line prefab not assigned!");
+        }
+    }
+    
+    private Vector3 CalculateBezierCurve(Vector3[] points, float t)
+    {
+        if (points.Length == 2)
+        {
+            // Linear interpolation for 2 points
+            return Vector3.Lerp(points[0], points[1], t);
+        }
+        else if (points.Length == 3)
+        {
+            // Quadratic Bezier for 3 points
+            float u = 1 - t;
+            return u * u * points[0] + 2 * u * t * points[1] + t * t * points[2];
+        }
+        else
+        {
+            // Use De Casteljau's algorithm for higher order curves
+            Vector3[] temp = new Vector3[points.Length];
+            for (int i = 0; i < points.Length; i++)
+            {
+                temp[i] = points[i];
+            }
+            
+            for (int level = points.Length - 1; level > 0; level--)
+            {
+                for (int i = 0; i < level; i++)
+                {
+                    temp[i] = Vector3.Lerp(temp[i], temp[i + 1], t);
+                }
+            }
+            
+            return temp[0];
         }
     }
 }
