@@ -1142,6 +1142,11 @@ MonoBehaviour:
     m_InputActionReference: {fileID: 0}
     m_ObjectReferenceObject: {fileID: 0}
     m_ManualValue: 0
+--- !u!4 &188054875 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 202364688, guid: f6336ac4ac8b4d34bc5072418cdc62a0, type: 3}
+  m_PrefabInstance: {fileID: 528607140}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &189371948
 GameObject:
   m_ObjectHideFlags: 0
@@ -3338,6 +3343,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5c30bbbb3b856141bcecc4ce9364730, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  toolMenu: {fileID: 1589605259}
   triggerAction:
     m_UseReference: 0
     m_Action:
@@ -3358,14 +3364,42 @@ MonoBehaviour:
         m_Flags: 0
       m_Flags: 0
     m_Reference: {fileID: 0}
+  leftTriggerAction:
+    m_UseReference: 0
+    m_Action:
+      m_Name: Left Trigger
+      m_Type: 0
+      m_ExpectedControlType: 
+      m_Id: 7dd04a69-938c-44ec-908a-9a206861b6f7
+      m_Processors: 
+      m_Interactions: 
+      m_SingletonActionBindings:
+      - m_Name: 
+        m_Id: 05863491-b09d-44ff-984d-991bbb1652d4
+        m_Path: <XRController>{LeftHand}/{Trigger}
+        m_Interactions: 
+        m_Processors: 
+        m_Groups: 
+        m_Action: Left Trigger
+        m_Flags: 0
+      m_Flags: 0
+    m_Reference: {fileID: 0}
   rightController: {fileID: 19176347}
+  leftController: {fileID: 188054875}
   maxRayDistance: 10
   raycastLayerMask:
     serializedVersion: 2
     m_Bits: 8
   pointPrefab: {fileID: 4666496257387464798, guid: 11ac455a40d72af44a6b530009c934e9, type: 3}
+  linePrefab: {fileID: 5932796468437778660, guid: 901fdf8e8fdc3be4098527f79e754677, type: 3}
   lineRenderer: {fileID: 585220288}
   drawingQuadTransform: {fileID: 1862756492}
+  hoverColor: {r: 0, g: 1, b: 0, a: 1}
+  selectedColor: {r: 1, g: 0, b: 0, a: 1}
+  selectedPoints: []
+  hoverPickRadius: 0.03
+  arcHeight: 0.5
+  arcResolution: 20
 --- !u!4 &585220287
 Transform:
   m_ObjectHideFlags: 0

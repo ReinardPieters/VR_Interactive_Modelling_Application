@@ -39,6 +39,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     
     // List to track order of selected dots for non-point tools
     private List<GameObject> orderedSelectedDots = new List<GameObject>();
+    private int previousTool = -1; // Track previous tool to detect changes
     
     // Arc parameters
     public float arcHeight = 0.5f; // How high the arc curves
@@ -199,6 +200,18 @@ public class VRLineDrawerOpenXR : MonoBehaviour
 
     private void Update()
     {
+        // Check for tool changes and clear selection if tool changed
+        int currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
+        if (currentTool != previousTool)
+        {
+            if (orderedSelectedDots.Count > 0)
+            {
+                ClearOrderedSelection();
+                Debug.Log("Tool changed - cleared dot selection");
+            }
+            previousTool = currentTool;
+        }
+        
         UpdateHover(); // Always update hover regardless of tool or drawing state
 
         if (isDrawing)
@@ -258,10 +271,21 @@ public class VRLineDrawerOpenXR : MonoBehaviour
 
         if (hoveredPoint == bestDot) return;
 
-        if (hoveredPoint != null && !selectedPoints.Contains(hoveredPoint))
+        if (hoveredPoint != null)
         {
-            if (hoveredPrevColor.HasValue) SetDotColor(hoveredPoint, hoveredPrevColor.Value);
-            else SetDotColor(hoveredPoint, selectedColor);
+            if (hoveredPrevColor.HasValue) 
+            {
+                SetDotColor(hoveredPoint, hoveredPrevColor.Value);
+            }
+            else if (selectedPoints.Contains(hoveredPoint))
+            {
+                SetDotColor(hoveredPoint, selectedColor);
+            }
+            else
+            {
+                // Restore to default color (white or whatever the original dot color was)
+                SetDotColor(hoveredPoint, Color.white);
+            }
         }
 
         hoveredPoint = bestDot;
