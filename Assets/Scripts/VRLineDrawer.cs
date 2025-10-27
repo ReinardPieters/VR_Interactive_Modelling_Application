@@ -44,6 +44,10 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     // Arc parameters
     public float arcHeight = 0.5f; // How high the arc curves
     public int arcResolution = 20; // Number of points in the arc
+    
+    // Circle timing for semicircle direction
+    private float leftTriggerPressTime = 0f;
+    private bool leftTriggerPressed = false;
 
  
     void OnEnable()
@@ -54,6 +58,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         
         leftTriggerAction.action.Enable();
         leftTriggerAction.action.performed += OnLeftTriggerPressed;
+        leftTriggerAction.action.canceled += OnLeftTriggerReleased;
     }
 
     void OnDisable()
@@ -64,6 +69,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         
         leftTriggerAction.action.Disable();
         leftTriggerAction.action.performed -= OnLeftTriggerPressed;
+        leftTriggerAction.action.canceled -= OnLeftTriggerReleased;
     }
 
     private void OnTriggerPressed(InputAction.CallbackContext ctx)
@@ -325,6 +331,18 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         Debug.Log("Spawned " + newPoint.name + " at " + spawnPos);
     }
     
+    private void OnLeftTriggerReleased(InputAction.CallbackContext ctx)
+    {
+        if (leftTriggerPressed)
+        {
+            leftTriggerPressed = false;
+            float holdTime = Time.time - leftTriggerPressTime;
+            bool createUpperSemicircle = holdTime < 1f; // Short press = upper/right, long press = lower/left
+            
+            CreateCircleFromSelection(createUpperSemicircle);
+        }
+    }
+    
     public List<GameObject> GetOrderedSelectedDots()
     {
         return new List<GameObject>(orderedSelectedDots);
@@ -340,7 +358,12 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     {
         int currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
         
-        if (currentTool == 2 && orderedSelectedDots.Count >= 2) // Line tool
+        if (currentTool == 4 && orderedSelectedDots.Count == 2) // Circle tool
+        {
+            leftTriggerPressed = true;
+            leftTriggerPressTime = Time.time;
+        }
+        else if (currentTool == 2 && orderedSelectedDots.Count >= 2) // Line tool
         {
             CreateLinesFromSelection();
         }
@@ -350,7 +373,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         }
         else
         {
-            Debug.Log("Need Line or Arc tool selected and at least 2 dots to create shapes");
+            Debug.Log("Need appropriate tool selected and enough dots to create shapes");
         }
     }
     
@@ -471,6 +494,64 @@ public class VRLineDrawerOpenXR : MonoBehaviour
             }
             
             return temp[0];
+        }
+    }
+    
+    private void CreateCircleFromSelection(bool upperSemicircle)
+    {
+        if (orderedSelectedDots.Count != 2)
+        {
+            Debug.Log("Circle tool needs exactly 2 points on the circle");
+            return;
+        }
+        
+        Vector3 point1 = orderedSelectedDots[0].transform.position;
+        Vector3 point2 = orderedSelectedDots[1].transform.position;
+        
+        CreateSemicircle(point1, point2, upperSemicircle);
+        Debug.Log("Created " + (upperSemicircle ? "upper" : "lower") + " semicircle through " + orderedSelectedDots[0].name + " and " + orderedSelectedDots[1].name);
+        ClearOrderedSelection();
+    }
+    
+    private void CreateSemicircle(Vector3 point1, Vector3 point2, bool upperSemicircle)
+    {
+        if (linePrefab != null)
+        {
+            GameObject newSemicircle = Instantiate(linePrefab, drawingQuadTransform);
+            LineRenderer lr = newSemicircle.GetComponent<LineRenderer>();
+            
+            if (lr != null)
+            {
+                Vector3 center = (point1 + point2) / 2f;
+                float radius = Vector3.Distance(point1, point2) / 2f;
+                
+                int semicircleResolution = 32;
+                lr.positionCount = semicircleResolution + 1;
+                
+                // Calculate start and end angles
+                Vector3 direction = (point2 - point1).normalized;
+                float startAngle = Mathf.Atan2(direction.y, direction.x);
+                float endAngle = startAngle + Mathf.PI;
+                
+                if (!upperSemicircle)
+                {
+                    // Flip for lower semicircle
+                    startAngle += Mathf.PI;
+                    endAngle += Mathf.PI;
+                }
+                
+                for (int i = 0; i <= semicircleResolution; i++)
+                {
+                    float t = i / (float)semicircleResolution;
+                    float angle = Mathf.Lerp(startAngle, endAngle, t);
+                    Vector3 circlePoint = center + new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0);
+                    lr.SetPosition(i, circlePoint);
+                }
+            }
+        }
+        else
+        {
+            Debug.LogWarning("Line prefab not assigned!");
         }
     }
 }
