@@ -36,6 +36,8 @@ public class ToolMenuFunctionality : MonoBehaviour
 
 	// === Tool Selection Tracking ===
 	private int currentTool = 0;
+	private int previousTool = -1; // Track previous tool to detect changes
+	private int lastSelectedTool = 1; // Remember the last selected tool (default to Point)
 
 	// === Controller Transform ===
 	public Transform controllerTransform;
@@ -97,6 +99,7 @@ public class ToolMenuFunctionality : MonoBehaviour
 			isVisible = false;
 			canvasToToggle.SetActive(isVisible);
 			ToolMenuDisplay.sprite = PlainToolMenu;
+			if (currentTool > 0) lastSelectedTool = currentTool; // Remember the selected tool
 			currentTool = 0;
 			target.rotation = Quaternion.Euler(0, 0, 0f);
 			LockXRMovement(false);
@@ -194,6 +197,21 @@ public class ToolMenuFunctionality : MonoBehaviour
 				ToolMenuDisplay.sprite = PlainToolMenu;
 				break;
 		}
+
+		// Log tool changes
+		if (currentTool != previousTool)
+		{
+			string[] toolNames = { "None", "Point", "Line", "Arc", "Circle", "Rectangle", "Polygon" };
+			string toolName = currentTool < toolNames.Length ? toolNames[currentTool] : "Unknown";
+			Debug.Log("Tool selected: " + toolName);
+			previousTool = currentTool;
+		}
+	}
+
+	// === Public Method to Get Current Tool ===
+	public int GetCurrentTool()
+	{
+		return currentTool > 0 ? currentTool : lastSelectedTool;
 	}
 
 	// === XR Locking Methods ===

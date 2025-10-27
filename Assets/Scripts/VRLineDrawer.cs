@@ -8,13 +8,16 @@ using UnityEngine.XR.Interaction.Toolkit;
 
 public class VRLineDrawerOpenXR : MonoBehaviour
 {
-    private Dictionary<double, string> tools = new Dictionary<double, string>();
+    public ToolMenuFunctionality toolMenu; // Reference to tool menu
 
     public InputActionProperty triggerAction; 
+    public InputActionProperty leftTriggerAction; // Left controller trigger
     public Transform rightController;
+    public Transform leftController; // Left controller transform
     public float maxRayDistance = 10f; // Max distance for raycast
     public LayerMask raycastLayerMask; // Layer to interact with (set in the inspector)
     public GameObject pointPrefab; // Red dot prefab to spawn
+    public GameObject linePrefab; // Prefab for creating lines between dots
     public LineRenderer lineRenderer; // Reference to the LineRenderer
 
     // New field to store the drawing quad (drag this into the Inspector)
@@ -33,22 +36,19 @@ public class VRLineDrawerOpenXR : MonoBehaviour
 
     private List<GameObject> allPoints = new List<GameObject>();
     public float hoverPickRadius = 0.03f;
+    
+    // List to track order of selected dots for non-point tools
+    private List<GameObject> orderedSelectedDots = new List<GameObject>();
 
-    private void Start()
-    {
-        //add subtooms denoted by key x.y
-        tools.Add(0, "Point");
-        tools.Add(1, "Line");
-        tools.Add(2, "Arc");
-        tools.Add(3, "Circle");
-        tools.Add(4, "Rectangle");
-        tools.Add(5, "Polygon");
-    } 
+ 
     void OnEnable()
     {
         triggerAction.action.Enable();
         triggerAction.action.performed += OnTriggerPressed;
         triggerAction.action.canceled += OnTriggerReleased;
+        
+        leftTriggerAction.action.Enable();
+        leftTriggerAction.action.performed += OnLeftTriggerPressed;
     }
 
     void OnDisable()
@@ -56,6 +56,9 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         triggerAction.action.Disable();
         triggerAction.action.performed -= OnTriggerPressed;
         triggerAction.action.canceled -= OnTriggerReleased;
+        
+        leftTriggerAction.action.Disable();
+        leftTriggerAction.action.performed -= OnLeftTriggerPressed;
     }
 
     private void OnTriggerPressed(InputAction.CallbackContext ctx)
@@ -64,6 +67,15 @@ public class VRLineDrawerOpenXR : MonoBehaviour
 
         if (hoveredPoint != null)
         {
+            int currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
+            
+            if (currentTool != 1) // If not Point tool
+            {
+                // Add to ordered selection list (allow duplicates for shapes like triangles)
+                orderedSelectedDots.Add(hoveredPoint);
+                Debug.Log("Selected dot " + hoveredPoint.name + " (Order: " + orderedSelectedDots.Count + ")");
+            }
+            
             SetDotColor(hoveredPoint, selectedColor);
             if (!selectedPoints.Contains(hoveredPoint))
                 selectedPoints.Add(hoveredPoint);
@@ -131,18 +143,32 @@ public class VRLineDrawerOpenXR : MonoBehaviour
                                             currentRaycastHitPoint.y,
                                             quadZ);
 
-                GameObject newPoint = Instantiate(pointPrefab, spawnPos, Quaternion.identity);
-                newPoint.transform.SetParent(drawingQuadTransform, true);
-
-                var col = newPoint.GetComponent<Collider>();
-                if (!col) newPoint.AddComponent<SphereCollider>();
-
-                pointCount++;
-                newPoint.name = "sphere_" + pointCount;
-
-                allPoints.Add(newPoint);
-
-                Debug.Log("Spawned " + newPoint.name + " at " + spawnPos);
+                int currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
+                
+                switch (currentTool)
+                {
+                    case 1: // Point tool
+                        CreatePoint(hitInfo.point);
+                        break;
+                    case 2: // Line tool
+                        Debug.Log("Line tool selected - functionality to be implemented");
+                        break;
+                    case 3: // Arc tool
+                        Debug.Log("Arc tool selected - functionality to be implemented");
+                        break;
+                    case 4: // Circle tool
+                        Debug.Log("Circle tool selected - functionality to be implemented");
+                        break;
+                    case 5: // Rectangle tool
+                        Debug.Log("Rectangle tool selected - functionality to be implemented");
+                        break;
+                    case 6: // Polygon tool
+                        Debug.Log("Polygon tool selected - functionality to be implemented");
+                        break;
+                    default:
+                        Debug.Log("No tool selected");
+                        break;
+                }
             }
             else
             {
@@ -155,7 +181,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
 
     private void Update()
     {
-        UpdateHover();
+        UpdateHover(); // Always update hover regardless of tool or drawing state
 
         if (isDrawing)
         {
@@ -236,5 +262,88 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         if (!dot) return;
         var rend = dot.GetComponent<Renderer>();
         if (rend != null) rend.material.color = c;
+    }
+
+    private void CreatePoint(Vector3 hitPoint)
+    {
+        float quadZ = drawingQuadTransform.position.z;
+        Vector3 spawnPos = new Vector3(hitPoint.x, hitPoint.y, quadZ);
+        
+        GameObject newPoint = Instantiate(pointPrefab, spawnPos, Quaternion.identity);
+        newPoint.transform.SetParent(drawingQuadTransform, true);
+        
+        var col = newPoint.GetComponent<Collider>();
+        if (!col) newPoint.AddComponent<SphereCollider>();
+        
+        pointCount++;
+        newPoint.name = "sphere_" + pointCount;
+        
+        allPoints.Add(newPoint);
+        
+        Debug.Log("Spawned " + newPoint.name + " at " + spawnPos);
+    }
+    
+    public List<GameObject> GetOrderedSelectedDots()
+    {
+        return new List<GameObject>(orderedSelectedDots);
+    }
+    
+    public void ClearOrderedSelection()
+    {
+        orderedSelectedDots.Clear();
+        Debug.Log("Cleared ordered dot selection");
+    }
+    
+    private void OnLeftTriggerPressed(InputAction.CallbackContext ctx)
+    {
+        int currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
+        
+        if (currentTool == 2 && orderedSelectedDots.Count >= 2) // Line tool and at least 2 dots
+        {
+            CreateLinesFromSelection();
+        }
+        else
+        {
+            Debug.Log("Need Line tool selected and at least 2 dots to create lines");
+        }
+    }
+    
+    private void CreateLinesFromSelection()
+    {
+        for (int i = 0; i < orderedSelectedDots.Count - 1; i++)
+        {
+            GameObject startDot = orderedSelectedDots[i];
+            GameObject endDot = orderedSelectedDots[i + 1];
+            
+            if (startDot != null && endDot != null)
+            {
+                CreateLineBetweenDots(startDot, endDot);
+            }
+        }
+        
+        Debug.Log("Created " + (orderedSelectedDots.Count - 1) + " lines from selected dots");
+        ClearOrderedSelection();
+    }
+    
+    private void CreateLineBetweenDots(GameObject startDot, GameObject endDot)
+    {
+        if (linePrefab != null)
+        {
+            GameObject newLine = Instantiate(linePrefab, drawingQuadTransform);
+            LineRenderer lr = newLine.GetComponent<LineRenderer>();
+            
+            if (lr != null)
+            {
+                lr.positionCount = 2;
+                lr.SetPosition(0, startDot.transform.position);
+                lr.SetPosition(1, endDot.transform.position);
+                
+                Debug.Log("Created line from " + startDot.name + " to " + endDot.name);
+            }
+        }
+        else
+        {
+            Debug.LogWarning("Line prefab not assigned!");
+        }
     }
 }
