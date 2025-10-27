@@ -8,7 +8,7 @@ public class DropdownMenuUI : MonoBehaviour
 
     void Start()
     {
-        menuPanel.SetActive(false); // Hide at start
+        menuPanel.SetActive(false); 
         mainMenuButton.onClick.AddListener(ToggleMenu);
     }
 

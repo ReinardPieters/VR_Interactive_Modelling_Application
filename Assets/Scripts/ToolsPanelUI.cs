@@ -14,6 +14,6 @@ public class ToolPanelUI : MonoBehaviour
 
     void ToggleToolsPanel()
     {
-        toolsPanel.SetActive(!toolsPanel.activeSelf); // Toggle visibility
+        toolsPanel.SetActive(!toolsPanel.activeSelf); 
     }
 }

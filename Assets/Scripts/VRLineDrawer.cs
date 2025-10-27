@@ -1,10 +1,16 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.XR.Interaction.Toolkit;
 
 public class VRLineDrawerOpenXR : MonoBehaviour
 {
-    public InputActionProperty triggerAction; // assign in Inspector
+    private Dictionary<double, string> tools = new Dictionary<double, string>();
+
+    public InputActionProperty triggerAction; 
     public Transform rightController;
     public float maxRayDistance = 10f; // Max distance for raycast
     public LayerMask raycastLayerMask; // Layer to interact with (set in the inspector)
@@ -18,6 +24,26 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     private GameObject spawnedPoint; // Reference to the spawned point
     private Vector3 currentRaycastHitPoint; // To store the current hit point for later point creation
 
+    public Color hoverColor = Color.green;
+    public Color selectedColor = Color.red;
+    public List<GameObject> selectedPoints = new List<GameObject>();
+    private GameObject hoveredPoint = null;
+    private Color? hoveredPrevColor = null;
+    private bool selectedThisPress = false;
+
+    private List<GameObject> allPoints = new List<GameObject>();
+    public float hoverPickRadius = 0.03f;
+
+    private void Start()
+    {
+        //add subtooms denoted by key x.y
+        tools.Add(0, "Point");
+        tools.Add(1, "Line");
+        tools.Add(2, "Arc");
+        tools.Add(3, "Circle");
+        tools.Add(4, "Rectangle");
+        tools.Add(5, "Polygon");
+    } 
     void OnEnable()
     {
         triggerAction.action.Enable();
@@ -34,6 +60,23 @@ public class VRLineDrawerOpenXR : MonoBehaviour
 
     private void OnTriggerPressed(InputAction.CallbackContext ctx)
     {
+        selectedThisPress = false;
+
+        if (hoveredPoint != null)
+        {
+            SetDotColor(hoveredPoint, selectedColor);
+            if (!selectedPoints.Contains(hoveredPoint))
+                selectedPoints.Add(hoveredPoint);
+
+            selectedThisPress = true;
+
+            if (rightController && lineRenderer)
+                DrawRaycastLine(rightController.position, hoveredPoint.transform.position);
+
+            isDrawing = true;
+            return;
+        }
+
         isDrawing = true;
         Debug.Log("Trigger Pressed!");
 
@@ -67,6 +110,12 @@ public class VRLineDrawerOpenXR : MonoBehaviour
 
         lineRenderer.positionCount = 0;
 
+        if (selectedThisPress)
+        {
+            selectedThisPress = false;
+            return;
+        }
+
         if (currentRaycastHitPoint != Vector3.zero && drawingQuadTransform != null)
         {
             // make sure we actually hit the drawing quad
@@ -85,9 +134,13 @@ public class VRLineDrawerOpenXR : MonoBehaviour
                 GameObject newPoint = Instantiate(pointPrefab, spawnPos, Quaternion.identity);
                 newPoint.transform.SetParent(drawingQuadTransform, true);
 
-                // increment counter and rename
+                var col = newPoint.GetComponent<Collider>();
+                if (!col) newPoint.AddComponent<SphereCollider>();
+
                 pointCount++;
                 newPoint.name = "sphere_" + pointCount;
+
+                allPoints.Add(newPoint);
 
                 Debug.Log("Spawned " + newPoint.name + " at " + spawnPos);
             }
@@ -102,6 +155,8 @@ public class VRLineDrawerOpenXR : MonoBehaviour
 
     private void Update()
     {
+        UpdateHover();
+
         if (isDrawing)
         {
             // Continuously update the line while holding the trigger
@@ -128,5 +183,58 @@ public class VRLineDrawerOpenXR : MonoBehaviour
         lineRenderer.positionCount = 2;
         lineRenderer.SetPosition(0, startPoint); // Start position (controller position)
         lineRenderer.SetPosition(1, endPoint);   // End position (hit point or max distance)
+    }
+
+    private void UpdateHover()
+    {
+        if (rightController == null) return;
+
+        Ray ray = new Ray(rightController.position, rightController.forward);
+
+        GameObject bestDot = null;
+        float bestDist = hoverPickRadius;
+
+        for (int i = allPoints.Count - 1; i >= 0; i--)
+        {
+            var dot = allPoints[i];
+            if (dot == null) { allPoints.RemoveAt(i); continue; }
+
+            Vector3 toDot = dot.transform.position - ray.origin;
+            float proj = Vector3.Dot(toDot, ray.direction);
+            if (proj < 0f || proj > maxRayDistance) continue;
+
+            Vector3 closest = ray.origin + ray.direction * proj;
+            float dist = Vector3.Distance(closest, dot.transform.position);
+            if (dist <= bestDist)
+            {
+                bestDist = dist;
+                bestDot = dot;
+            }
+        }
+
+        if (hoveredPoint == bestDot) return;
+
+        if (hoveredPoint != null && !selectedPoints.Contains(hoveredPoint))
+        {
+            if (hoveredPrevColor.HasValue) SetDotColor(hoveredPoint, hoveredPrevColor.Value);
+            else SetDotColor(hoveredPoint, selectedColor);
+        }
+
+        hoveredPoint = bestDot;
+        hoveredPrevColor = null;
+
+        if (hoveredPoint != null && !selectedPoints.Contains(hoveredPoint))
+        {
+            var rend = hoveredPoint.GetComponent<Renderer>();
+            if (rend != null) hoveredPrevColor = rend.material.color;
+            SetDotColor(hoveredPoint, hoverColor);
+        }
+    }
+
+    private void SetDotColor(GameObject dot, Color c)
+    {
+        if (!dot) return;
+        var rend = dot.GetComponent<Renderer>();
+        if (rend != null) rend.material.color = c;
     }
 }
