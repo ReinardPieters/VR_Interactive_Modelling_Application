@@ -35,24 +35,13 @@ public class ToolMenuFunctionality : MonoBehaviour
 	public GameObject canvasToToggle;
 
 	// === Tool Selection Tracking ===
-	private int currentTool = 0;
+	private double currentTool = 0;
 	private int previousTool = -1; // Track previous tool to detect changes
 	private int lastSelectedTool = 1; // Remember the last selected tool (default to Point)
 
 	// === Controller Transform ===
 	public Transform controllerTransform;
 
-	// === XR Locomotion Lock ===
-	public GameObject xrOrigin; // Assign your XR Origin (XRRig) in the Inspector
-	private ContinuousMoveProviderBase moveProvider;
-	private ContinuousTurnProviderBase turnProvider;
-	private UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationProvider teleportProvider;
-
-	// === Camera Lock ===
-	private Camera xrCamera;
-	private Vector3 lockedCamPosition;
-	private Quaternion lockedCamRotation;
-	private bool cameraLocked = false;
 
 	// === Enable / Disable Input Actions ===
 	void OnEnable()
@@ -72,15 +61,6 @@ public class ToolMenuFunctionality : MonoBehaviour
 		canvasToToggle.SetActive(isVisible);
 		ToolMenuDisplay.sprite = PlainToolMenu;
 
-		// Setup XR providers
-		if (xrOrigin)
-		{
-			moveProvider = xrOrigin.GetComponentInChildren<ContinuousMoveProviderBase>();
-			turnProvider = xrOrigin.GetComponentInChildren<ContinuousTurnProviderBase>();
-			teleportProvider = xrOrigin.GetComponentInChildren<UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation.TeleportationProvider>();
-		}
-
-		xrCamera = Camera.main;
 	}
 
 	void Update()
@@ -90,8 +70,6 @@ public class ToolMenuFunctionality : MonoBehaviour
 		{
 			isVisible = true;
 			canvasToToggle.SetActive(isVisible);
-			LockXRMovement(true);
-			LockXRCamera(true);
 		}
 
 		if (gripAction.action.WasReleasedThisFrame())
@@ -102,8 +80,6 @@ public class ToolMenuFunctionality : MonoBehaviour
 			if (currentTool > 0) lastSelectedTool = currentTool; // Remember the selected tool
 			currentTool = 0;
 			target.rotation = Quaternion.Euler(0, 0, 0f);
-			LockXRMovement(false);
-			LockXRCamera(false);
 		}
 
 		// === Handle Tool Selection ===
@@ -111,13 +87,6 @@ public class ToolMenuFunctionality : MonoBehaviour
 		{
 			analogValue = analogAction.action.ReadValue<Vector2>();
 			HandleAnalogInput();
-		}
-
-		// === Keep Camera Locked ===
-		if (cameraLocked && xrCamera != null)
-		{
-			xrCamera.transform.position = lockedCamPosition;
-			xrCamera.transform.rotation = lockedCamRotation;
 		}
 	}
 
@@ -166,9 +135,21 @@ public class ToolMenuFunctionality : MonoBehaviour
 			case 2:
 				ToolMenuDisplay.sprite = LineSelected;
 				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 0f);
-				if (analogValue.y >= 0.5f && analogValue.x <= -0.5f) ToolMenuDisplay.sprite = LinelineSelected;
-				if (analogValue.y > 0.7f && Mathf.Abs(analogValue.x) < 0.5f) ToolMenuDisplay.sprite = ParallelLineSelected;
-				if (analogValue.y >= 0.5f && analogValue.x >= 0.5f) ToolMenuDisplay.sprite = AngleLineSelected;
+				if (analogValue.y >= 0.5f && analogValue.x <= -0.5f)
+				{ 
+					ToolMenuDisplay.sprite = LinelineSelected;
+					currentTool = 2.1;
+				}
+				if (analogValue.y > 0.7f && Mathf.Abs(analogValue.x)
+				{ 
+					< 0.5f) ToolMenuDisplay.sprite = ParallelLineSelected;
+					currentTool = 2.2;
+				}
+				if (analogValue.y >= 0.5f && analogValue.x >= 0.5f) 
+				{
+					ToolMenuDisplay.sprite = AngleLineSelected;
+					currentTool = 2.3;
+				}
 				break;
 
 			case 3:
@@ -184,8 +165,16 @@ public class ToolMenuFunctionality : MonoBehaviour
 			case 5:
 				ToolMenuDisplay.sprite = RectangleSelected;
 				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 180f);
-				if (analogValue.y >= 0.5f && analogValue.x < 0f) ToolMenuDisplay.sprite = FromCenterSelected;
-				if (analogValue.y >= 0.5f && analogValue.x > 0f) ToolMenuDisplay.sprite = FromCornerSelected;
+				if (analogValue.y >= 0.5f && analogValue.x < 0f)
+				{
+					ToolMenuDisplay.sprite = FromCenterSelected; 
+					currentTool = 5.1;
+				}
+				if (analogValue.y >= 0.5f && analogValue.x > 0f)
+				{ 
+					ToolMenuDisplay.sprite = FromCornerSelected; 
+					currentTool = 5.2;
+				}
 				break;
 
 			case 6:
@@ -246,27 +235,4 @@ public class ToolMenuFunctionality : MonoBehaviour
 		return 0; // Default line
 	}
 
-	// === XR Locking Methods ===
-	private void LockXRMovement(bool lockMovement)
-	{
-		if (moveProvider) moveProvider.enabled = !lockMovement;
-		if (turnProvider) turnProvider.enabled = !lockMovement;
-		if (teleportProvider) teleportProvider.enabled = !lockMovement;
-	}
-
-	private void LockXRCamera(bool lockCam)
-	{
-		if (!xrCamera) return;
-
-		if (lockCam)
-		{
-			lockedCamPosition = xrCamera.transform.position;
-			lockedCamRotation = xrCamera.transform.rotation;
-			cameraLocked = true;
-		}
-		else
-		{
-			cameraLocked = false;
-		}
-	}
 }
