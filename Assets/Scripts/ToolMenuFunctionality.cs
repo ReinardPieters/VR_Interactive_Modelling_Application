@@ -35,13 +35,12 @@ public class ToolMenuFunctionality : MonoBehaviour
 	public GameObject canvasToToggle;
 
 	// === Tool Selection Tracking ===
-	private double currentTool = 0;
-	private int previousTool = -1; // Track previous tool to detect changes
-	private int lastSelectedTool = 1; // Remember the last selected tool (default to Point)
+	private double currentTool = 0;          // Use double now
+	private double previousTool = -1;        // Track previous tool to detect changes
+	private double lastSelectedTool = 1;     // Remember the last selected tool (default to Point)
 
 	// === Controller Transform ===
 	public Transform controllerTransform;
-
 
 	// === Enable / Disable Input Actions ===
 	void OnEnable()
@@ -60,7 +59,6 @@ public class ToolMenuFunctionality : MonoBehaviour
 	{
 		canvasToToggle.SetActive(isVisible);
 		ToolMenuDisplay.sprite = PlainToolMenu;
-
 	}
 
 	void Update()
@@ -77,7 +75,7 @@ public class ToolMenuFunctionality : MonoBehaviour
 			isVisible = false;
 			canvasToToggle.SetActive(isVisible);
 			ToolMenuDisplay.sprite = PlainToolMenu;
-			if (currentTool > 0) lastSelectedTool = currentTool; // Remember the selected tool
+			if (currentTool > 0) lastSelectedTool = currentTool; // Remember selected tool
 			currentTool = 0;
 			target.rotation = Quaternion.Euler(0, 0, 0f);
 		}
@@ -92,147 +90,74 @@ public class ToolMenuFunctionality : MonoBehaviour
 
 	private void HandleAnalogInput()
 	{
-		//Change current tool based on analog input
-		if (currentTool != 0 && analogValue.x > 0.7f && analogValue.y < 0.5f && analogValue.y > -0.5f && !analogInUse)
+		// === Change main tool (1, 2, 3, 4, 5, 6) if no sub-tool yet ===
+		if ((currentTool == 1 || currentTool == 2 || currentTool == 3 || currentTool == 4 || currentTool == 5 || currentTool == 6) && !analogInUse)
 		{
-			currentTool += 1;
-			if (currentTool > 6) currentTool = 1;
-			analogInUse = true;
-		}
-		if (currentTool != 0 && analogValue.x < -0.7f && analogValue.y < 0.5f && analogValue.y > -0.5f && !analogInUse)
-		{
-			currentTool -= 1;
-			if (currentTool < 1) currentTool = 6;
-			analogInUse = true;
+			if (analogValue.x > 0.7f && Mathf.Abs(analogValue.y) < 0.5f) { currentTool += 1; if (currentTool > 6) currentTool = 1; analogInUse = true; }
+			if (analogValue.x < -0.7f && Mathf.Abs(analogValue.y) < 0.5f) { currentTool -= 1; if (currentTool < 1) currentTool = 6; analogInUse = true; }
 		}
 
-		//Reset Analog In Use
-		if (analogValue.x < 0.5f && analogValue.x > -0.5f && analogValue.y < 0.5f && analogValue.y > -0.5f)
+		if (Mathf.Abs(analogValue.x) < 0.5f && Mathf.Abs(analogValue.y) < 0.5f)
 			analogInUse = false;
 
-		//Selection if tool is 0
-		if (currentTool == 0 && analogValue.x < -0.7f && Mathf.Abs(analogValue.y) < 0.5f)
+		// === Select main tool if currentTool is 0 ===
+		if (currentTool == 0)
 		{
-			currentTool = 1; analogInUse = true;
-		}
-		if (currentTool == 0 && analogValue.x > 0.7f && Mathf.Abs(analogValue.y) < 0.5f)
-		{
-			currentTool = 3; analogInUse = true;
-		}
-		if (currentTool == 0 && Mathf.Abs(analogValue.x) < 0.5f && analogValue.y > 0.7f)
-		{
-			currentTool = 2; analogInUse = true;
+			if (analogValue.x < -0.7f && Mathf.Abs(analogValue.y) < 0.5f) { currentTool = 1; analogInUse = true; }
+			if (analogValue.y > 0.7f && Mathf.Abs(analogValue.x) < 0.5f) { currentTool = 2; analogInUse = true; } // Must pick Line sub-tool
+			if (analogValue.x > 0.7f && Mathf.Abs(analogValue.y) < 0.5f) { currentTool = 3; analogInUse = true; }
+			if (analogValue.x > 0.7f && analogValue.y > 0.5f) { currentTool = 5; analogInUse = true; } // Rectangle sub-tool
+			if (analogValue.x > 0.7f && analogValue.y < -0.5f) { currentTool = 6; analogInUse = true; }
 		}
 
 		// === Tool Display Logic ===
-		switch (currentTool)
+		if (currentTool == 1) // Point
 		{
-			case 1:
-				ToolMenuDisplay.sprite = PointSelected;
-				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, -60f);
-				break;
-
-			case 2:
-				ToolMenuDisplay.sprite = LineSelected;
-				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 0f);
-				if (analogValue.y >= 0.5f && analogValue.x <= -0.5f)
-				{ 
-					ToolMenuDisplay.sprite = LinelineSelected;
-					currentTool = 2.1;
-				}
-				if (analogValue.y > 0.7f && Mathf.Abs(analogValue.x)
-				{ 
-					< 0.5f) ToolMenuDisplay.sprite = ParallelLineSelected;
-					currentTool = 2.2;
-				}
-				if (analogValue.y >= 0.5f && analogValue.x >= 0.5f) 
-				{
-					ToolMenuDisplay.sprite = AngleLineSelected;
-					currentTool = 2.3;
-				}
-				break;
-
-			case 3:
-				ToolMenuDisplay.sprite = ArcSelected;
-				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 60f);
-				break;
-
-			case 4:
-				ToolMenuDisplay.sprite = CircleSelected;
-				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 120f);
-				break;
-
-			case 5:
-				ToolMenuDisplay.sprite = RectangleSelected;
-				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 180f);
-				if (analogValue.y >= 0.5f && analogValue.x < 0f)
-				{
-					ToolMenuDisplay.sprite = FromCenterSelected; 
-					currentTool = 5.1;
-				}
-				if (analogValue.y >= 0.5f && analogValue.x > 0f)
-				{ 
-					ToolMenuDisplay.sprite = FromCornerSelected; 
-					currentTool = 5.2;
-				}
-				break;
-
-			case 6:
-				ToolMenuDisplay.sprite = PolygonSelected;
-				target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, -120f);
-				break;
-
-			default:
-				ToolMenuDisplay.sprite = PlainToolMenu;
-				break;
+			ToolMenuDisplay.sprite = PointSelected;
+			target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, -60f);
+		}
+		else if (currentTool >= 2 && currentTool < 3) // Line sub-tools
+		{
+			target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 0f);
+			ToolMenuDisplay.sprite = LineSelected;
+			if (analogValue.y >= 0.5f && analogValue.x <= -0.5f) { currentTool = 2.1; ToolMenuDisplay.sprite = LinelineSelected; }
+			else if (analogValue.y > 0.7f && Mathf.Abs(analogValue.x) < 0.5f) { currentTool = 2.2; ToolMenuDisplay.sprite = ParallelLineSelected; }
+			else if (analogValue.y >= 0.5f && analogValue.x >= 0.5f) { currentTool = 2.3; ToolMenuDisplay.sprite = AngleLineSelected; }
+		}
+		else if (currentTool == 3) // Arc
+		{
+			ToolMenuDisplay.sprite = ArcSelected;
+			target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 60f);
+		}
+		else if (currentTool == 4) // Circle
+		{
+			ToolMenuDisplay.sprite = CircleSelected;
+			target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 120f);
+		}
+		else if (currentTool >= 5 && currentTool < 6) // Rectangle sub-tools
+		{
+			target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, 180f);
+			ToolMenuDisplay.sprite = RectangleSelected;
+			if (analogValue.y >= 0.5f && analogValue.x < 0f) { currentTool = 5.1; ToolMenuDisplay.sprite = FromCenterSelected; }
+			else if (analogValue.y >= 0.5f && analogValue.x > 0f) { currentTool = 5.2; ToolMenuDisplay.sprite = FromCornerSelected; }
+		}
+		else if (currentTool == 6) // Polygon
+		{
+			ToolMenuDisplay.sprite = PolygonSelected;
+			target.rotation = controllerTransform.rotation * Quaternion.Euler(0, 0, -120f);
 		}
 
-		// Log tool changes
+		// === Log current tool ===
 		if (currentTool != previousTool)
 		{
-			string[] toolNames = { "None", "Point", "Line", "Arc", "Circle", "Rectangle", "Polygon" };
-			string toolName = currentTool < toolNames.Length ? toolNames[currentTool] : "Unknown";
-			Debug.Log("Tool selected: " + toolName);
+			Debug.Log("Tool selected: " + currentTool.ToString("0.0"));
 			previousTool = currentTool;
-			previousLineSubTool = -1; // Reset sub-tool tracking when main tool changes
-		}
-		
-		// Log line sub-tool changes
-		if (currentTool == 2)
-		{
-			int currentSubTool = 0;
-			if (analogValue.y >= 0.5f && analogValue.x <= -0.5f) currentSubTool = 1; // LinelineSelected
-			else if (analogValue.y > 0.7f && Mathf.Abs(analogValue.x) < 0.5f) currentSubTool = 2; // ParallelLineSelected
-			else if (analogValue.y >= 0.5f && analogValue.x >= 0.5f) currentSubTool = 3; // AngleLineSelected
-			
-			if (currentSubTool != previousLineSubTool)
-			{
-				string[] subToolNames = { "Default Line", "Line-Line", "Parallel Line", "Angle Line" };
-				string subToolName = currentSubTool < subToolNames.Length ? subToolNames[currentSubTool] : "Unknown";
-				Debug.Log("Line sub-tool: " + subToolName);
-				previousLineSubTool = currentSubTool;
-			}
 		}
 	}
 
 	// === Public Method to Get Current Tool ===
-	public int GetCurrentTool()
+	public double GetCurrentTool()
 	{
 		return currentTool > 0 ? currentTool : lastSelectedTool;
 	}
-	
-	// === Public Method to Get Line Sub-Tool ===
-	private int previousLineSubTool = -1;
-	
-	public int GetLineSubTool()
-	{
-		if (currentTool == 2) // Only for Line tool
-		{
-			if (analogValue.y >= 0.5f && analogValue.x <= -0.5f) return 1; // LinelineSelected
-			if (analogValue.y > 0.7f && Mathf.Abs(analogValue.x) < 0.5f) return 2; // ParallelLineSelected
-			if (analogValue.y >= 0.5f && analogValue.x >= 0.5f) return 3; // AngleLineSelected
-		}
-		return 0; // Default line
-	}
-
 }

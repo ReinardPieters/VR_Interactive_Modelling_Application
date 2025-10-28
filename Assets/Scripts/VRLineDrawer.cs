@@ -14,7 +14,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     public InputActionProperty leftTriggerAction; // Left controller trigger
     public Transform rightController;
     public Transform leftController; // Left controller transform
-    public float maxRayDistance = 10f; // Max distance for raycast
+    public float maxRayDistance = 30f; // Max distance for raycast
     public LayerMask raycastLayerMask; // Layer to interact with (set in the inspector)
     public GameObject pointPrefab; // Red dot prefab to spawn
     public GameObject linePrefab; // Prefab for creating lines between dots
@@ -39,7 +39,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     
     // List to track order of selected dots for non-point tools
     private List<GameObject> orderedSelectedDots = new List<GameObject>();
-    private int previousTool = -1; // Track previous tool to detect changes
+    private double previousTool = -1; // Track previous tool to detect changes
     
     // Arc parameters
     public float arcHeight = 0.5f; // How high the arc curves
@@ -78,7 +78,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
 
         if (hoveredPoint != null)
         {
-            int currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
+            double currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
             
             if (currentTool != 1) // If not Point tool
             {
@@ -167,7 +167,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
                                             currentRaycastHitPoint.y,
                                             quadZ);
 
-                int currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
+                double currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
                 
                 switch (currentTool)
                 {
@@ -206,7 +206,7 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     private void Update()
     {
         // Check for tool changes and clear selection if tool changed
-        int currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
+        double currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
         if (currentTool != previousTool)
         {
             if (orderedSelectedDots.Count > 0)
@@ -355,37 +355,117 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     
     private void OnLeftTriggerPressed(InputAction.CallbackContext ctx)
     {
-        int currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
-        
+        double currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
+
         if (currentTool == 4 && orderedSelectedDots.Count == 2) // Circle tool
         {
             leftTriggerPressed = true;
             leftTriggerPressTime = Time.time;
         }
-        else if (currentTool == 2 && orderedSelectedDots.Count >= 2) // Line tool
+        else if (currentTool == 2.1 && orderedSelectedDots.Count >= 2) // Line tool
         {
-            int lineSubTool = toolMenu != null ? toolMenu.GetLineSubTool() : 0;
-            
-            if (lineSubTool == 2 && orderedSelectedDots.Count == 3) // Parallel line sub-tool
-            {
-                CreateParallelLine();
-            }
-            else
-            {
-                CreateLinesFromSelection();
-            }
+            CreateLinesFromSelection();
+        }
+        else if (currentTool == 2.2 && orderedSelectedDots.Count == 3) // Parallel line sub-tool
+        {
+            CreateParallelLine();
         }
         else if (currentTool == 3 && orderedSelectedDots.Count >= 2) // Arc tool
         {
             CreateArcsFromSelection();
         }
-        else 
+		else if (currentTool == 5.1 && orderedSelectedDots.Count == 2) // Rectangle from center
+		{
+			CreateRectangleFromCenter();
+		}
+		else if (currentTool == 5.2 && orderedSelectedDots.Count == 2) // Rectangle from corner
+		{
+			CreateRectangleFromCorner();
+		}
+		else 
         {
             Debug.Log("Need appropriate tool selected and enough dots to create shapes");
         }
     }
-    
-    private void CreateLinesFromSelection()
+
+	private void CreateRectangleFromCenter()
+	{
+		GameObject centerDot = orderedSelectedDots[0];
+		GameObject cornerDot = orderedSelectedDots[1];
+
+		Vector3 center = centerDot.transform.position;
+		Vector3 corner = cornerDot.transform.position;
+
+		Vector3 halfExtents = corner - center;
+
+		// Calculate the other 3 corners
+		Vector3 corner1 = center + new Vector3(halfExtents.x, -halfExtents.y, 0); // bottom-right
+		Vector3 corner2 = center + new Vector3(-halfExtents.x, -halfExtents.y, 0); // bottom-left
+		Vector3 corner3 = center + new Vector3(-halfExtents.x, halfExtents.y, 0); // top-left
+
+		// Create dots
+		GameObject dot1 = CreatePointAtRectPosition(corner);
+		GameObject dot2 = CreatePointAtRectPosition(corner1);
+		GameObject dot3 = CreatePointAtRectPosition(corner2);
+		GameObject dot4 = CreatePointAtRectPosition(corner3);
+
+		// Connect lines in order
+		CreateLineBetweenSpecificPoints(dot1.transform.position, dot2.transform.position);
+		CreateLineBetweenSpecificPoints(dot2.transform.position, dot3.transform.position);
+		CreateLineBetweenSpecificPoints(dot3.transform.position, dot4.transform.position);
+		CreateLineBetweenSpecificPoints(dot4.transform.position, dot1.transform.position);
+
+		Debug.Log("Created rectangle (from center) using " + centerDot.name + " and " + cornerDot.name);
+		ClearOrderedSelection();
+	}
+
+	private void CreateRectangleFromCorner()
+	{
+		GameObject corner1 = orderedSelectedDots[0];
+		GameObject corner2 = orderedSelectedDots[1];
+
+		Vector3 p1 = corner1.transform.position;
+		Vector3 p2 = corner2.transform.position;
+
+		// Other corners share the same x or y
+		Vector3 corner3Pos = new Vector3(p1.x, p2.y, p1.z);
+		Vector3 corner4Pos = new Vector3(p2.x, p1.y, p1.z);
+
+		// Create missing corner dots
+		GameObject dot3 = CreatePointAtRectPosition(corner3Pos);
+		GameObject dot4 = CreatePointAtRectPosition(corner4Pos);
+
+		// Connect all four corners
+		CreateLineBetweenSpecificPoints(p1, corner3Pos);
+		CreateLineBetweenSpecificPoints(corner3Pos, p2);
+		CreateLineBetweenSpecificPoints(p2, corner4Pos);
+		CreateLineBetweenSpecificPoints(corner4Pos, p1);
+
+		Debug.Log("Created rectangle (from corner) using " + corner1.name + " and " + corner2.name);
+		ClearOrderedSelection();
+	}
+
+	private GameObject CreatePointAtRectPosition(Vector3 position)
+	{
+		float quadZ = drawingQuadTransform.position.z;
+		Vector3 spawnPos = new Vector3(position.x, position.y, quadZ);
+
+		GameObject newPoint = Instantiate(pointPrefab, spawnPos, Quaternion.identity);
+		newPoint.transform.SetParent(drawingQuadTransform, true);
+
+		var col = newPoint.GetComponent<Collider>();
+		if (!col) newPoint.AddComponent<SphereCollider>();
+
+		pointCount++;
+		newPoint.name = "sphere_" + pointCount;
+
+		allPoints.Add(newPoint);
+
+		Debug.Log("Spawned " + newPoint.name + " at " + spawnPos);
+		return newPoint;
+	}
+
+	private void CreateLinesFromSelection()
     {
         for (int i = 0; i < orderedSelectedDots.Count - 1; i++)
         {
