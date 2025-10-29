@@ -49,6 +49,13 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     private float leftTriggerPressTime = 0f;
     private bool leftTriggerPressed = false;
 
+    //Trigger pressed to select Dot
+    private bool dotselected = false;
+    
+    // Debounce variables to prevent multiple selections
+    private float lastTriggerTime = 0f;
+    private const float triggerDebounceTime = 0.3f; // 300ms debounce
+
  
     void OnEnable()
     {
@@ -74,67 +81,79 @@ public class VRLineDrawerOpenXR : MonoBehaviour
 
     private void OnTriggerPressed(InputAction.CallbackContext ctx)
     {
-        selectedThisPress = false;
-
-        if (hoveredPoint != null)
+        // Debounce check - prevent rapid trigger presses
+        if (Time.time - lastTriggerTime < triggerDebounceTime)
         {
-            double currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
-            
-            if (currentTool != 1) // If not Point tool
+            return;
+        }
+        
+        if (!dotselected)
+        {
+            lastTriggerTime = Time.time;
+            selectedThisPress = false;
+
+            if (hoveredPoint != null)
             {
-                if (currentTool == 3) // Arc tool - no duplicates
+                double currentTool = toolMenu != null ? toolMenu.GetCurrentTool() : 1;
+                
+                if (currentTool != 1) // If not Point tool
                 {
-                    if (!orderedSelectedDots.Contains(hoveredPoint))
+                    if (currentTool == 3) // Arc tool - no duplicates
+                    {
+                        if (!orderedSelectedDots.Contains(hoveredPoint))
+                        {
+                            orderedSelectedDots.Add(hoveredPoint);
+                            Debug.Log("Selected dot " + hoveredPoint.name + " (Order: " + orderedSelectedDots.Count + ")");
+                        }
+                        else
+                        {
+                            Debug.Log("Dot " + hoveredPoint.name + " already selected for arc");
+                        }
+                    }
+                    else // Other tools - allow duplicates for shapes like triangles
                     {
                         orderedSelectedDots.Add(hoveredPoint);
                         Debug.Log("Selected dot " + hoveredPoint.name + " (Order: " + orderedSelectedDots.Count + ")");
                     }
-                    else
-                    {
-                        Debug.Log("Dot " + hoveredPoint.name + " already selected for arc");
-                    }
                 }
-                else // Other tools - allow duplicates for shapes like triangles
-                {
-                    orderedSelectedDots.Add(hoveredPoint);
-                    Debug.Log("Selected dot " + hoveredPoint.name + " (Order: " + orderedSelectedDots.Count + ")");
-                }
+                
+                SetDotColor(hoveredPoint, selectedColor);
+                if (!selectedPoints.Contains(hoveredPoint))
+                    selectedPoints.Add(hoveredPoint);
+
+                selectedThisPress = true;
+
+                if (rightController && lineRenderer)
+                    DrawRaycastLine(rightController.position, hoveredPoint.transform.position);
+
+                isDrawing = true;
+                return;
             }
-            
-            SetDotColor(hoveredPoint, selectedColor);
-            if (!selectedPoints.Contains(hoveredPoint))
-                selectedPoints.Add(hoveredPoint);
-
-            selectedThisPress = true;
-
-            if (rightController && lineRenderer)
-                DrawRaycastLine(rightController.position, hoveredPoint.transform.position);
 
             isDrawing = true;
-            return;
-        }
 
-        isDrawing = true;
+            // Perform the raycast from the right controller
+            Ray ray = new Ray(rightController.position, rightController.forward);
+            RaycastHit hitInfo;
 
-        // Perform the raycast from the right controller
-        Ray ray = new Ray(rightController.position, rightController.forward);
-        RaycastHit hitInfo;
+            if (Physics.Raycast(ray, out hitInfo, maxRayDistance, raycastLayerMask))
+            {
+                // Log the name of the object hit by the raycast
+                Debug.Log("Hit Object: " + hitInfo.transform.name);
 
-        if (Physics.Raycast(ray, out hitInfo, maxRayDistance, raycastLayerMask))
-        {
-            // Log the name of the object hit by the raycast
-            Debug.Log("Hit Object: " + hitInfo.transform.name);
+                // Store the current raycast hit point for point spawning later
+                currentRaycastHitPoint = hitInfo.point;
 
-            // Store the current raycast hit point for point spawning later
-            currentRaycastHitPoint = hitInfo.point;
+                // Draw the line from the controller to the hit point (continuously updating the line)
+                DrawRaycastLine(rightController.position, hitInfo.point);
+            }
+            else
+            {
+                // If the raycast doesn't hit anything, draw a line to the max distance
+                DrawRaycastLine(rightController.position, ray.GetPoint(maxRayDistance));
+            }
 
-            // Draw the line from the controller to the hit point (continuously updating the line)
-            DrawRaycastLine(rightController.position, hitInfo.point);
-        }
-        else
-        {
-            // If the raycast doesn't hit anything, draw a line to the max distance
-            DrawRaycastLine(rightController.position, ray.GetPoint(maxRayDistance));
+            dotselected = true;
         }
     }
     private int pointCount = 0;   // counter for placed points
@@ -143,6 +162,8 @@ public class VRLineDrawerOpenXR : MonoBehaviour
     {
         if (!isDrawing) return;
         isDrawing = false;
+
+        dotselected = false;
 
         lineRenderer.positionCount = 0;
 
